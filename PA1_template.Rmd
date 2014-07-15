@@ -1,20 +1,91 @@
-# Reproducible Research: Peer Assessment 1
-
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "John Wright"
+date: "Saturday, July 12, 2014"
+output: html_document
+---
 
 ## Loading and preprocessing the data
-
-
+```{r, echo=TRUE}
+library(ggplot2)
+dir <- getwd()
+data <- read.csv(file.path(dir, "activity.csv"))
+```
 
 ## What is mean total number of steps taken per day?
+```{r, echo=TRUE}
+totalStepsPerDay <- aggregate(steps ~ date, data = data[!is.na(data$steps), ], FUN = sum)
 
+qplot(x = totalStepsPerDay$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", bindwidth = 700)
+
+mean(totalStepsPerDay$steps)
+median(totalStepsPerDay$steps)
+```
 
 
 ## What is the average daily activity pattern?
+```{r, echo=TRUE}
+avgStepsPerInterval <- aggregate(steps ~ interval, data = data[!is.na(data$steps), ], FUN = mean)
+mostSteps <- max(avgStepsPerInterval$steps)
+mostStepsInterval <- avgStepsPerInterval[avgStepsPerInterval$steps == mostSteps, 1]
 
-
+qplot(x = avgStepsPerInterval$interval, 
+      y = avgStepsPerInterval$steps, 
+      geom = "line", 
+      xlab = "Interval (minutes)", 
+      ylab = "Average Steps Per Interval") + 
+      geom_point(data = data.frame(mostStepsInterval, mostSteps), 
+                 aes(mostStepsInterval, mostSteps), colour = "red2", size = 4) + 
+      annotate("text", label = paste("Max steps: ", round(mostSteps, 0), "\nInterval: ", mostStepsInterval), 
+               x = mostStepsInterval + 120, 
+               y = mostSteps, 
+               size = 4)
+```
 
 ## Imputing missing values
+```{r, echo = TRUE}
+nrow(data) - sum(complete.cases(data))
 
+imputedVals <- merge(data[is.na(data$steps), ], 
+                     avgStepsPerInterval, 
+                     by = "interval")[, c(4, 3, 1)]
+
+colnames(imputedVals) <- colnames(data)
+cleanOrigData <- data[!is.na(data$steps), ]
+complete <- rbind(imputedVals, cleanOrigData)
+
+totalStepsPerDay2 <- aggregate(steps ~ date, data = complete, FUN = sum)
+qplot(x = totalStepsPerDay2$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE}
+isWeekend <- function(x) {
+  if (weekdays(as.Date(x)) %in% c("Saturday", "Sunday")) {
+    return ("Weekend")
+    } else return ("Weekday")
+}
+
+complete$is_weekend <- as.factor(sapply(as.Date(complete$date, "%Y-%m-%d"), FUN = isWeekend))
+complete <- complete[order(complete$interval), ]
+
+weekendData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekend", ], FUN = mean)
+weekdayData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekday", ], FUN = mean)
+
+par(mfrow = c(2, 1))
+plot(weekendData$steps, type = "l", ylab = "Weekend")
+plot(weekdayData$steps, type = "l", ylab = "Weekday")
+
+qplot(x = weekendData$interval,
+      y = weekendData$steps,
+      geom = "line",
+      xlab = "Interval",
+      ylab = "Steps")
+qplot(x = weekdayData$interval,
+      y = weekdayData$steps,
+      geom = "line",
+      xlab = "Interval",
+      ylab = "Steps")
+```
+

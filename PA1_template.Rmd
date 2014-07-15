@@ -16,7 +16,7 @@ data <- read.csv(file.path(dir, "activity.csv"))
 ```{r, echo=TRUE}
 totalStepsPerDay <- aggregate(steps ~ date, data = data[!is.na(data$steps), ], FUN = sum)
 
-qplot(x = totalStepsPerDay$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", bindwidth = 700)
+qplot(x = totalStepsPerDay$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", bindwidth = 700, main = "Total Number of Steps Taken Each Day")
 
 mean(totalStepsPerDay$steps)
 median(totalStepsPerDay$steps)
@@ -40,9 +40,15 @@ qplot(x = avgStepsPerInterval$interval,
                x = mostStepsInterval + 120, 
                y = mostSteps, 
                size = 4)
+
+#convert the interval into a timestamp to make the graph more readable.
 ```
+Interval 835 has the maximum amount of steps on average.
+
 
 ## Imputing missing values
+There are 2304 instances of missing values in the activity dataset. These values have been imputed by using the average steps for each time interval calculated above. The average number of steps taken for a given time interval has been used to represent the amount of steps taken wherever there was a missing value in the original dataset. The new imputed dataset is stored in `complete` below.
+
 ```{r, echo = TRUE}
 nrow(data) - sum(complete.cases(data))
 
@@ -54,8 +60,19 @@ colnames(imputedVals) <- colnames(data)
 cleanOrigData <- data[!is.na(data$steps), ]
 complete <- rbind(imputedVals, cleanOrigData)
 
-totalStepsPerDay2 <- aggregate(steps ~ date, data = complete, FUN = sum)
-qplot(x = totalStepsPerDay2$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700)
+totalStepsPerDayImputed <- aggregate(steps ~ date, data = complete, FUN = sum)
+qplot(x = totalStepsPerDayImputed$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700, main = "Total Number of Steps Taken Each Day")
+
+#find a way to layer the new graph ontop of the old one to see the difference
+#http://stackoverflow.com/questions/3541713/how-to-plot-two-histograms-together-in-r
+#http://stackoverflow.com/questions/7476022/geom-point-and-geom-line-for-multiple-datasets-on-same-graph-in-ggplot2
+#http://stackoverflow.com/questions/21713234/plotting-two-graphs-over-each-other-in-ggplot
+
+##, aes(steps, fill = steps)
+totalStepsPerDay$set <- as.factor("original")
+totalStepsPerDayImputed$set <- as.factor("imputed")
+graphData <- rbind(totalStepsPerDay, totalStepsPerDayImputed)
+ggplot(graphData, aes(steps, fill = set)) + geom_histogram(alpha = 0.4, position = "identity")
 ```
 
 

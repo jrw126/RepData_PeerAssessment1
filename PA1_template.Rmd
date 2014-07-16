@@ -5,38 +5,58 @@ date: "Saturday, July 12, 2014"
 output: html_document
 ---
 
-## Loading and preprocessing the data
+## Loading data and packages
+This code assumes the raw data is located in your working directory.
 ```{r, echo=TRUE}
 library(ggplot2)
 dir <- getwd()
 data <- read.csv(file.path(dir, "activity.csv"))
 ```
 
-## What is mean total number of steps taken per day?
+## Total steps per day
+The total number of steps taken each day is represented in the histogram below:
 ```{r, echo=TRUE}
 totalStepsPerDay <- aggregate(steps ~ date, data = data[!is.na(data$steps), ], FUN = sum)
 
 qplot(x = totalStepsPerDay$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", bindwidth = 700, main = "Total Number of Steps Taken Each Day")
+```
 
+The mean and median total steps each day are:
+```{r, echo=TRUE}
 mean(totalStepsPerDay$steps)
 median(totalStepsPerDay$steps)
 ```
 
-
-## What is the average daily activity pattern?
+## Average daily activity pattern
 ```{r, echo=TRUE}
 avgStepsPerInterval <- aggregate(steps ~ interval, data = data[!is.na(data$steps), ], FUN = mean)
+#
+datestring <- strptime(sprintf("%04d", as.numeric(as.character(avgStepsPerInterval$interval))), "%H%M")
+#
+avgStepsPerInterval$interval <- strptime(sprintf("%04d", as.numeric(as.character(avgStepsPerInterval$interval))), "%H%M")
+#
+avgStepsPerInterval$interval <- as.numeric(datestring - trunc(datestring, "days"))
+#
+avgStepsPerInterval$interval <- as.POSIXct(avgStepsPerInterval$interval)
+#
 mostSteps <- max(avgStepsPerInterval$steps)
 mostStepsInterval <- avgStepsPerInterval[avgStepsPerInterval$steps == mostSteps, 1]
 
 qplot(x = avgStepsPerInterval$interval, 
       y = avgStepsPerInterval$steps, 
       geom = "line", 
-      xlab = "Interval (minutes)", 
+      xlab = "Interval (minutes)",
       ylab = "Average Steps Per Interval") + 
+      scale_x_datetime(labels = format("%S:00")) + 
       geom_point(data = data.frame(mostStepsInterval, mostSteps), 
-                 aes(mostStepsInterval, mostSteps), colour = "red2", size = 4) + 
-      annotate("text", label = paste("Max steps: ", round(mostSteps, 0), "\nInterval: ", mostStepsInterval), 
+                 aes(mostStepsInterval, mostSteps), 
+                 colour = "red2", 
+                 size = 4) + 
+      annotate("text", 
+               label = paste("Max steps: ", 
+                             round(mostSteps, 0), 
+                             "\nInterval: ",
+                             mostStepsInterval), 
                x = mostStepsInterval + 120, 
                y = mostSteps, 
                size = 4)
@@ -64,15 +84,16 @@ totalStepsPerDayImputed <- aggregate(steps ~ date, data = complete, FUN = sum)
 qplot(x = totalStepsPerDayImputed$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700, main = "Total Number of Steps Taken Each Day")
 
 #find a way to layer the new graph ontop of the old one to see the difference
-#http://stackoverflow.com/questions/3541713/how-to-plot-two-histograms-together-in-r
-#http://stackoverflow.com/questions/7476022/geom-point-and-geom-line-for-multiple-datasets-on-same-graph-in-ggplot2
-#http://stackoverflow.com/questions/21713234/plotting-two-graphs-over-each-other-in-ggplot
-
-##, aes(steps, fill = steps)
-totalStepsPerDay$set <- as.factor("original")
-totalStepsPerDayImputed$set <- as.factor("imputed")
+totalStepsPerDay$Set <- as.factor("Original")
+totalStepsPerDayImputed$Set <- as.factor("Imputed")
 graphData <- rbind(totalStepsPerDay, totalStepsPerDayImputed)
-ggplot(graphData, aes(steps, fill = set)) + geom_histogram(alpha = 0.4, position = "identity")
+ggplot(graphData, aes(steps, fill = Set)) + 
+  geom_histogram(alpha = 0.5, position = "identity", binwidth = 700) + 
+  scale_fill_manual(values = c(Imputed = "grey50", Original = "black")) +
+  xlab("Steps") +
+  ylab("Count") +
+  ggtitle("Average Total Steps Per Day\n Original vs Imputed Missing Values") +
+  theme(plot.title = element_text(face = "bold", size = "14"))
 ```
 
 

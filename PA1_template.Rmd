@@ -9,6 +9,7 @@ output: html_document
 This code assumes the raw data is located in your working directory.
 ```{r, echo=TRUE}
 library(ggplot2)
+library(gridExtra)
 dir <- getwd()
 data <- read.csv(file.path(dir, "activity.csv"))
 ```
@@ -30,15 +31,7 @@ median(totalStepsPerDay$steps)
 ## Average daily activity pattern
 ```{r, echo=TRUE}
 avgStepsPerInterval <- aggregate(steps ~ interval, data = data[!is.na(data$steps), ], FUN = mean)
-#
-datestring <- strptime(sprintf("%04d", as.numeric(as.character(avgStepsPerInterval$interval))), "%H%M")
-#
-avgStepsPerInterval$interval <- strptime(sprintf("%04d", as.numeric(as.character(avgStepsPerInterval$interval))), "%H%M")
-#
-avgStepsPerInterval$interval <- as.numeric(datestring - trunc(datestring, "days"))
-#
-avgStepsPerInterval$interval <- as.POSIXct(avgStepsPerInterval$interval)
-#
+
 mostSteps <- max(avgStepsPerInterval$steps)
 mostStepsInterval <- avgStepsPerInterval[avgStepsPerInterval$steps == mostSteps, 1]
 
@@ -47,7 +40,6 @@ qplot(x = avgStepsPerInterval$interval,
       geom = "line", 
       xlab = "Interval (minutes)",
       ylab = "Average Steps Per Interval") + 
-      scale_x_datetime(labels = format("%S:00")) + 
       geom_point(data = data.frame(mostStepsInterval, mostSteps), 
                  aes(mostStepsInterval, mostSteps), 
                  colour = "red2", 
@@ -60,17 +52,15 @@ qplot(x = avgStepsPerInterval$interval,
                x = mostStepsInterval + 120, 
                y = mostSteps, 
                size = 4)
-
-#convert the interval into a timestamp to make the graph more readable.
 ```
-Interval 835 has the maximum amount of steps on average.
+Interval 835 has the maximum amount of steps on average, as shown by the red dot on the plot above.
 
 
 ## Imputing missing values
-There are 2304 instances of missing values in the activity dataset. These values have been imputed by using the average steps for each time interval calculated above. The average number of steps taken for a given time interval has been used to represent the amount of steps taken wherever there was a missing value in the original dataset. The new imputed dataset is stored in `complete` below.
+There are 2304 instances of missing values in the activity dataset. These values have been imputed by using the average steps for each time interval calculated above and stored in `avgStepsPerInterval`. The average number of steps taken for a given time interval has been used to represent the amount of steps taken wherever there was a missing value in the original dataset. The new imputed dataset is stored in `complete` which is assembled in the code below.
 
 ```{r, echo = TRUE}
-nrow(data) - sum(complete.cases(data))
+nrow(data) - sum(complete.cases(data)) # Calculate the number of records with missing values.
 
 imputedVals <- merge(data[is.na(data$steps), ], 
                      avgStepsPerInterval, 
@@ -79,11 +69,13 @@ imputedVals <- merge(data[is.na(data$steps), ],
 colnames(imputedVals) <- colnames(data)
 cleanOrigData <- data[!is.na(data$steps), ]
 complete <- rbind(imputedVals, cleanOrigData)
+```
 
+The following chart shows 
+```{r, echo = TRUE}
 totalStepsPerDayImputed <- aggregate(steps ~ date, data = complete, FUN = sum)
 qplot(x = totalStepsPerDayImputed$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700, main = "Total Number of Steps Taken Each Day")
 
-#find a way to layer the new graph ontop of the old one to see the difference
 totalStepsPerDay$Set <- as.factor("Original")
 totalStepsPerDayImputed$Set <- as.factor("Imputed")
 graphData <- rbind(totalStepsPerDay, totalStepsPerDayImputed)
@@ -111,19 +103,24 @@ complete <- complete[order(complete$interval), ]
 weekendData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekend", ], FUN = mean)
 weekdayData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekday", ], FUN = mean)
 
-par(mfrow = c(2, 1))
-plot(weekendData$steps, type = "l", ylab = "Weekend")
-plot(weekdayData$steps, type = "l", ylab = "Weekday")
+weekendPlot <- qplot(x = weekendData$interval,
+                     y = weekendData$steps,
+                     geom = "line",
+                     xlab = "Interval",
+                     ylab = "Steps",
+                     main = "Weekend") +
+                     theme(plot.title = element_text(face = "bold", size = "14")) +
+                     geom_hline(yintercept = mean(weekendData$steps), colour = "red")
+#plot red line where mean is
 
-qplot(x = weekendData$interval,
-      y = weekendData$steps,
-      geom = "line",
-      xlab = "Interval",
-      ylab = "Steps")
-qplot(x = weekdayData$interval,
-      y = weekdayData$steps,
-      geom = "line",
-      xlab = "Interval",
-      ylab = "Steps")
+weekdayPlot <- qplot(x = weekdayData$interval,
+                     y = weekdayData$steps,
+                     geom = "line",
+                     xlab = "Interval",
+                     ylab = "Steps",
+                     main = "Weekday") +
+                     theme(plot.title = element_text(face = "bold", size = "14")) +
+                     geom_hline(yintercept = mean(weekdayData$steps), colour = "red")
+
+grid.arrange(weekendPlot, weekdayPlot, nrow = 2)
 ```
-

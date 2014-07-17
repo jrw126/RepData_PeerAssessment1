@@ -1,13 +1,16 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-author: "John Wright"
-date: "Saturday, July 12, 2014"
-output: html_document
+date: "Wednesday, July 16, 2014"
+output: html_document:
 ---
+## Introduction
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This analysis uses data from a personal activity monitoring device. The device collects data at 5 minute intervals throughout the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minutes intervals each day. The following code and analysis will provide a brief analysis of the times and days that people are most active.
 
 ## Loading data and packages
-This code assumes the raw data is located in your working directory.
-```{r, echo=TRUE}
+This code assumes you have the packages used below the raw data is located in your working directory.
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 library(ggplot2)
 library(gridExtra)
 dir <- getwd()
@@ -15,26 +18,24 @@ data <- read.csv(file.path(dir, "activity.csv"))
 ```
 
 ## Total steps per day
-The total number of steps taken each day is represented in the histogram below:
-```{r, echo=TRUE}
+The total number of steps recorded each day is stored in the `totalStepsPerDay` variable and represented in the histogram below:
+```{r, echo=TRUE, message=FALSE}
 totalStepsPerDay <- aggregate(steps ~ date, data = data[!is.na(data$steps), ], FUN = sum)
-
 qplot(x = totalStepsPerDay$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", bindwidth = 700, main = "Total Number of Steps Taken Each Day")
 ```
 
 The mean and median total steps each day are:
 ```{r, echo=TRUE}
-mean(totalStepsPerDay$steps)
-median(totalStepsPerDay$steps)
+mean(totalStepsPerDay$steps) # Return the average amount of steps taken each day.
+median(totalStepsPerDay$steps) # Return the median amount of steps taken each day.
 ```
 
 ## Average daily activity pattern
-```{r, echo=TRUE}
+The average amount of steps taken at each 5 minute time interval is calculated and stored in the variable `avgStepsPerInterval` below. The average level of activity at each time interval can be seen in the chart below.
+```{r, echo=TRUE, message=FALSE}
 avgStepsPerInterval <- aggregate(steps ~ interval, data = data[!is.na(data$steps), ], FUN = mean)
-
 mostSteps <- max(avgStepsPerInterval$steps)
 mostStepsInterval <- avgStepsPerInterval[avgStepsPerInterval$steps == mostSteps, 1]
-
 qplot(x = avgStepsPerInterval$interval, 
       y = avgStepsPerInterval$steps, 
       geom = "line", 
@@ -49,33 +50,37 @@ qplot(x = avgStepsPerInterval$interval,
                              round(mostSteps, 0), 
                              "\nInterval: ",
                              mostStepsInterval), 
-               x = mostStepsInterval + 120, 
+               x = mostStepsInterval + 265, 
                y = mostSteps, 
                size = 4)
 ```
+
 Interval 835 has the maximum amount of steps on average, as shown by the red dot on the plot above.
 
 
 ## Imputing missing values
-There are 2304 instances of missing values in the activity dataset. These values have been imputed by using the average steps for each time interval calculated above and stored in `avgStepsPerInterval`. The average number of steps taken for a given time interval has been used to represent the amount of steps taken wherever there was a missing value in the original dataset. The new imputed dataset is stored in `complete` which is assembled in the code below.
+There are 2304 instances of missing values in the activity dataset. These missing values have been imputed by using the average steps for each time interval calculated above and stored in `avgStepsPerInterval`. The average number of steps taken for a given time interval has been used to represent the amount of steps taken wherever there was a missing value in the original dataset for that time interval. The new imputed dataset is stored in `complete` which is assembled in the code below.
 
 ```{r, echo = TRUE}
 nrow(data) - sum(complete.cases(data)) # Calculate the number of records with missing values.
-
 imputedVals <- merge(data[is.na(data$steps), ], 
                      avgStepsPerInterval, 
                      by = "interval")[, c(4, 3, 1)]
-
 colnames(imputedVals) <- colnames(data)
 cleanOrigData <- data[!is.na(data$steps), ]
 complete <- rbind(imputedVals, cleanOrigData)
 ```
 
-The following chart shows 
-```{r, echo = TRUE}
-totalStepsPerDayImputed <- aggregate(steps ~ date, data = complete, FUN = sum)
-qplot(x = totalStepsPerDayImputed$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700, main = "Total Number of Steps Taken Each Day")
+The following histogram represents the total steps taken per day after the imputed values have been take into account.
 
+```{r, echo = TRUE, message=FALSE}
+totalStepsPerDayImputed <- aggregate(steps ~ date, data = complete, FUN = sum)
+qplot(x = totalStepsPerDayImputed$steps, geom = "histogram", xlab = "Total Steps", ylab = "Count", binwidth = 700, main = "Total Number of Steps Taken Each Day\n (Imputed Missing Values)")
+```
+
+The following histogram shows the change between the original chart above and the total steps per day with the missing values imputed. The dark region represents the original data and the lighter region represents the change caused by the imputed data.
+
+```{r, echo = TRUE, message=FALSE}
 totalStepsPerDay$Set <- as.factor("Original")
 totalStepsPerDayImputed$Set <- as.factor("Imputed")
 graphData <- rbind(totalStepsPerDay, totalStepsPerDayImputed)
@@ -88,21 +93,31 @@ ggplot(graphData, aes(steps, fill = Set)) +
   theme(plot.title = element_text(face = "bold", size = "14"))
 ```
 
+The impact can also be seen by comparing the means and medians of each dataset:
+```{r, echo = TRUE}
+mean(totalStepsPerDay$steps) # Mean total steps using the original data
+median(totalStepsPerDay$steps) # Median total steps using the original data
+mean(totalStepsPerDayImputed$steps) # Mean total steps using the imputed data
+median(totalStepsPerDayImputed$steps) # Median total steps using the imputed data
+```
+The impact of this imputation is `r mean(totalStepsPerDayImputed$steps) - mean(totalStepsPerDay$steps)` for the mean. The median is slightly higher after the imputation and matches the value of the means for both datasets. Despite the negligible impact on mean and median, the total number of steps taken on days with lots of missing values is higher.
 
-## Are there differences in activity patterns between weekdays and weekends?
+## Differences in activity patterns between weekdays and weekends
+First, a function is created to return whether or not a date is a weekend or weekday then applied it to the `complete` dataset.
 ```{r, echo = TRUE}
 isWeekend <- function(x) {
   if (weekdays(as.Date(x)) %in% c("Saturday", "Sunday")) {
     return ("Weekend")
     } else return ("Weekday")
 }
-
 complete$is_weekend <- as.factor(sapply(as.Date(complete$date, "%Y-%m-%d"), FUN = isWeekend))
 complete <- complete[order(complete$interval), ]
-
 weekendData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekend", ], FUN = mean)
 weekdayData <- aggregate(steps ~ interval, data = complete[complete$is_weekend == "Weekday", ], FUN = mean)
+```
 
+A panel plot of the weekend and weekday data are generated to visualize how the activity levels differ.
+```{r, echo = TRUE, message=FALSE}
 weekendPlot <- qplot(x = weekendData$interval,
                      y = weekendData$steps,
                      geom = "line",
@@ -111,8 +126,6 @@ weekendPlot <- qplot(x = weekendData$interval,
                      main = "Weekend") +
                      theme(plot.title = element_text(face = "bold", size = "14")) +
                      geom_hline(yintercept = mean(weekendData$steps), colour = "red")
-#plot red line where mean is
-
 weekdayPlot <- qplot(x = weekdayData$interval,
                      y = weekdayData$steps,
                      geom = "line",
@@ -121,6 +134,11 @@ weekdayPlot <- qplot(x = weekdayData$interval,
                      main = "Weekday") +
                      theme(plot.title = element_text(face = "bold", size = "14")) +
                      geom_hline(yintercept = mean(weekdayData$steps), colour = "red")
-
 grid.arrange(weekendPlot, weekdayPlot, nrow = 2)
+```
+
+As shown by the plots above, people are generally more active on weekends. The main activity during weekdays spikes early in the day. This can also be represented by comparing the average activity levels for weekends and weekdays, as represented by the red horizontal lines in the charts above.
+```{r, echo = TRUE}
+mean(weekendData$steps) # Return the average steps taken on weekends.
+mean(weekdayData$steps) # Return the average steps taken on weekdays.
 ```
